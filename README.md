@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🚒 CRM Modulaire - Calendrier Sapeurs-Pompiers 2026
 
 [![Netlify Status](https://api.netlify.com/api/v1/badges/YOUR-BADGE-ID/deploy-status)](https://app.netlify.com/sites/YOUR-SITE-NAME/deploys)
@@ -318,6 +317,3 @@ Développé pour optimiser la gestion des partenariats du **Calendrier Sapeurs-P
 [🌐 Site Web](https://crm-pompiers-2026.netlify.app) • [📊 Dashboard](https://app.netlify.com/sites/crm-pompiers-2026) • [🐛 Issues](https://github.com/VOTRE-USERNAME/crm-modulaire-pompiers/issues)
 
 </div>
-=======
-# crm-modulaire-pompiers
->>>>>>> 686aa147b872f13b5b97150739835e4c427aaf4f
