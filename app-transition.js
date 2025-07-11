@@ -332,18 +332,22 @@ class CRMAppTransition {
         try {
             this.updateStatus('🔍 Recherche en cours...');
             
+            // ✅ URL DIRECTE pour éviter les problèmes de config
+            const webhookUrl = 'https://n8n.dsolution-ia.fr/webhook/recherche_entreprise';
+            
             const apiService = loadedModules.apiService;
             let response;
             
             if (apiService?.request) {
-                response = await apiService.request(config.N8N_WEBHOOKS.RECHERCHE_ENTREPRISE, {
+                response = await apiService.request(webhookUrl, {
                     operation: 'getMany',
                     search: query,
                     limit: 10
                 });
             } else {
-                // Fallback direct
-                response = await fetch(config.N8N_WEBHOOKS.RECHERCHE_ENTREPRISE, {
+                // Fallback direct avec URL hardcodée
+                console.log('📤 Requête directe à:', webhookUrl);
+                response = await fetch(webhookUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -358,11 +362,11 @@ class CRMAppTransition {
             console.log(`📊 ${enterprises.length} entreprises trouvées`);
 
             this.displaySearchResults(enterprises);
-            this.updateStatus(`${enterprises.length} résultat(s) trouvé(s)`);
+            this.updateStatus(`✅ ${enterprises.length} résultat(s) trouvé(s)`);
 
         } catch (error) {
             console.error('❌ Erreur recherche:', error);
-            this.updateStatus('❌ Erreur de recherche (normal en local - CORS)');
+            this.updateStatus('❌ Erreur de recherche');
             this.displaySearchResults([]);
         }
     }
@@ -452,13 +456,17 @@ class CRMAppTransition {
         try {
             this.updateStatus('📊 Chargement statistiques...');
             
+            // ✅ URL DIRECTE pour éviter les problèmes de config
+            const webhookUrl = 'https://n8n.dsolution-ia.fr/webhook/gateway_entities';
+            
             const apiService = loadedModules.apiService;
             let response;
             
             if (apiService?.request) {
                 response = await apiService.request('stats_renouvellement_2026', {});
             } else {
-                response = await fetch(config.N8N_WEBHOOKS.GATEWAY_ENTITIES, {
+                console.log('📤 Requête stats à:', webhookUrl);
+                response = await fetch(webhookUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -473,7 +481,7 @@ class CRMAppTransition {
             
         } catch (error) {
             console.error('❌ Erreur stats:', error);
-            this.showMessage('❌ Erreur stats (normal en local - CORS)');
+            this.showMessage('❌ Erreur stats: ' + error.message);
         }
     }
 
