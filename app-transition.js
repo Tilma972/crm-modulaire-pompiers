@@ -12,18 +12,16 @@ const API_CONFIG = {
         RECHERCHE_ENTREPRISE: '/webhook/recherche_entreprise',
         GATEWAY_ENTITIES: '/webhook/gateway_entities'
     },
-    // Configuration fetch avec CORS robuste
+    // ✅ Headers simplifiés pour éviter preflight OPTIONS
     FETCH_OPTIONS: {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
+            'Content-Type': 'text/plain'  // ✅ Évite preflight
         },
         mode: 'cors',
-        credentials: 'omit'  // Pas de cookies cross-origin
+        credentials: 'omit'
     },
-    TIMEOUT: 15000  // 15 secondes timeout
+    TIMEOUT: 15000
 };
 
 // ========================================================================
