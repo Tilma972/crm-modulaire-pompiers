@@ -334,42 +334,89 @@ class CRMAppTransition {
             
             // ✅ URL DIRECTE pour éviter les problèmes de config
             const webhookUrl = 'https://n8n.dsolution-ia.fr/webhook/recherche_entreprise';
+            const payload = {
+                operation: 'getMany',
+                search: query,
+                limit: 10
+            };
+            
+            console.log('📤 Requête à:', webhookUrl);
+            console.log('📤 Payload:', payload);
             
             const apiService = loadedModules.apiService;
-            let response;
+            let response, data;
             
             if (apiService?.request) {
-                response = await apiService.request(webhookUrl, {
-                    operation: 'getMany',
-                    search: query,
-                    limit: 10
-                });
+                console.log('🔧 Utilisation apiService');
+                response = await apiService.request(webhookUrl, payload);
+                data = response;
             } else {
-                // Fallback direct avec URL hardcodée
-                console.log('📤 Requête directe à:', webhookUrl);
-                response = await fetch(webhookUrl, {
+                console.log('🔧 Utilisation fetch direct');
+                
+                // Fetch avec logs détaillés
+                const fetchResponse = await fetch(webhookUrl, {
                     method: 'POST',
                     headers: { 
-                        'Content-Type': 'application/json',
-                        'Origin': 'https://crmpompiers34800.netlify.app'
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        operation: 'getMany',
-                        search: query,
-                        limit: 10
-                    })
-                }).then(r => r.json());
+                    body: JSON.stringify(payload)
+                });
+                
+                console.log('📡 Response status:', fetchResponse.status);
+                console.log('📡 Response statusText:', fetchResponse.statusText);
+                console.log('📡 Response headers:', Object.fromEntries(fetchResponse.headers.entries()));
+                
+                // Vérifier si la réponse est OK
+                if (!fetchResponse.ok) {
+                    throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
+                }
+                
+                // Essayer de parser le JSON
+                try {
+                    const responseText = await fetchResponse.text();
+                    console.log('📡 Response text (premiers 500 chars):', responseText.substring(0, 500));
+                    
+                    data = JSON.parse(responseText);
+                    console.log('📡 Response parsée:', data);
+                } catch (jsonError) {
+                    console.error('❌ Erreur parsing JSON:', jsonError);
+                    throw new Error('Réponse JSON invalide du serveur');
+                }
             }
-
-            const enterprises = response?.data || [];
+            
+            // Extraction des données avec logging
+            let enterprises = [];
+            console.log('🔍 Structure de data:', Object.keys(data || {}));
+            
+            if (data) {
+                if (data.data && Array.isArray(data.data)) {
+                    enterprises = data.data;
+                    console.log('✅ Trouvé data.data avec', enterprises.length, 'éléments');
+                } else if (data.results && Array.isArray(data.results)) {
+                    enterprises = data.results;
+                    console.log('✅ Trouvé data.results avec', enterprises.length, 'éléments');
+                } else if (Array.isArray(data)) {
+                    enterprises = data;
+                    console.log('✅ Data est directement un array avec', enterprises.length, 'éléments');
+                } else {
+                    console.warn('⚠️ Structure de données non reconnue:', data);
+                    enterprises = [];
+                }
+            }
+            
             console.log(`📊 ${enterprises.length} entreprises trouvées`);
+            
+            if (enterprises.length > 0) {
+                console.log('📊 Première entreprise:', enterprises[0]);
+            }
 
             this.displaySearchResults(enterprises);
             this.updateStatus(`✅ ${enterprises.length} résultat(s) trouvé(s)`);
 
         } catch (error) {
-            console.error('❌ Erreur recherche:', error);
-            this.updateStatus('❌ Erreur de recherche');
+            console.error('❌ Erreur complète:', error);
+            console.error('❌ Stack trace:', error.stack);
+            this.updateStatus('❌ Erreur: ' + error.message);
             this.displaySearchResults([]);
         }
     }
