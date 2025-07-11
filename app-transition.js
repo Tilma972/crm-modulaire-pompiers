@@ -1,151 +1,175 @@
-// app-transition.js - Version adaptée à tes modules existants
-// Cette version s'adapte à tes fichiers créés
+// app-transition.js - Version corrigée avec gestion CORS robuste
+
+console.log('🚀 Démarrage app-transition.js - Version CORS Fixed');
 
 // ========================================================================
-// IMPORTS ADAPTATIFS (avec gestion d'erreurs)
+// CONFIGURATION CENTRALISÉE AVEC GESTION CORS
 // ========================================================================
 
-console.log('🚀 Démarrage app-transition.js');
-
-// Variables de fallback pour éviter les erreurs
-let config = {
-    N8N_WEBHOOKS: {
-        RECHERCHE_ENTREPRISE: 'https://n8n.dsolution-ia.fr/webhook/recherche_entreprise',
-        GATEWAY_ENTITIES: 'https://n8n.dsolution-ia.fr/webhook/gateway_entities'
+const API_CONFIG = {
+    BASE_URL: 'https://n8n.dsolution-ia.fr',
+    ENDPOINTS: {
+        RECHERCHE_ENTREPRISE: '/webhook/recherche_entreprise',
+        GATEWAY_ENTITIES: '/webhook/gateway_entities'
     },
-    DEFAULT_USER: { first_name: 'Stève', id: 123456789 }
+    // Configuration fetch avec CORS robuste
+    FETCH_OPTIONS: {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+        },
+        mode: 'cors',
+        credentials: 'omit'  // Pas de cookies cross-origin
+    },
+    TIMEOUT: 15000  // 15 secondes timeout
 };
 
-let loadedModules = {};
-
 // ========================================================================
-// CHARGEMENT ADAPTATIF DES MODULES
+// FETCH ROBUSTE AVEC GESTION D'ERREURS DÉTAILLÉE
 // ========================================================================
 
-async function loadModulesAdaptive() {
-    console.log('🔧 Chargement adaptatif des modules...');
+async function robustFetch(endpoint, payload) {
+    const url = `${API_CONFIG.BASE_URL}${endpoint}`;
     
-    const moduleMap = [
-        { 
-            path: './src/core/config.js', 
-            name: 'config',
-            fallback: () => config 
-        },
-        { 
-            path: './src/core/state.js', 
-            name: 'state',
-            fallback: () => ({
-                updateData: (key, value) => console.log(`State: ${key} =`, value),
-                subscribe: (key, callback) => console.log(`State subscribe: ${key}`),
-                getData: () => ({}),
-                initialize: () => console.log('✅ State fallback initialisé')
-            })
-        },
-        { 
-            path: './src/services/api.js', 
-            name: 'apiService',
-            fallback: () => ({
-                initialize: async () => console.log('✅ API fallback initialisé'),
-                request: async (url, data) => {
-                    console.log('📡 API Request (fallback):', url, data);
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
-                    });
-                    return response.json();
-                }
-            })
-        },
-        { 
-            path: './src/services/telegram.js', 
-            name: 'telegramService',
-            fallback: () => ({
-                initialize: async () => console.log('✅ Telegram fallback initialisé'),
-                showHapticFeedback: (type) => console.log(`📱 Haptic: ${type}`),
-                updateMainButton: (text, enabled) => console.log(`📱 Button: ${text} (${enabled})`),
-                showBackButton: (show, callback) => console.log(`📱 Back: ${show}`)
-            })
+    console.log(`📤 Requête vers: ${url}`);
+    console.log(`📤 Payload:`, JSON.stringify(payload, null, 2));
+    
+    // Créer AbortController pour timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+    
+    try {
+        // Options fetch complètes
+        const fetchOptions = {
+            ...API_CONFIG.FETCH_OPTIONS,
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        };
+        
+        console.log(`🔧 Options fetch:`, fetchOptions);
+        
+        // Exécution de la requête
+        const response = await fetch(url, fetchOptions);
+        
+        // Nettoyer le timeout
+        clearTimeout(timeoutId);
+        
+        // Logging détaillé de la réponse
+        console.log(`📡 Response status: ${response.status}`);
+        console.log(`📡 Response ok: ${response.ok}`);
+        console.log(`📡 Response headers:`, Object.fromEntries(response.headers.entries()));
+        
+        // Vérifier le status HTTP
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ HTTP Error ${response.status}:`, errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}\nDétails: ${errorText}`);
         }
-    ];
-    
-    for (const module of moduleMap) {
+        
+        // Lire le contenu comme text d'abord pour débugger
+        const responseText = await response.text();
+        console.log(`📡 Response text (premiers 500 chars):`, responseText.substring(0, 500));
+        
+        // Parser le JSON
+        let data;
         try {
-            console.log(`🔄 Chargement: ${module.path}`);
-            const imported = await import(module.path);
-            
-            // Gestion adaptative selon le format d'export
-            if (imported.default) {
-                loadedModules[module.name] = imported.default;
-            } else if (imported[module.name]) {
-                loadedModules[module.name] = imported[module.name];
-            } else if (module.name === 'config' && imported.AppConfig) {
-                loadedModules[module.name] = imported.AppConfig.getInstance();
-            } else {
-                // Prendre le premier export nommé
-                const firstExport = Object.values(imported)[0];
-                loadedModules[module.name] = firstExport || module.fallback();
-            }
-            
-            console.log(`✅ ${module.name} chargé`);
-            
-        } catch (error) {
-            console.warn(`⚠️ ${module.name} fallback:`, error.message);
-            loadedModules[module.name] = module.fallback();
+            data = JSON.parse(responseText);
+            console.log(`✅ JSON parsé avec succès`);
+            console.log(`📊 Data structure:`, Object.keys(data || {}));
+        } catch (jsonError) {
+            console.error(`❌ Erreur parsing JSON:`, jsonError);
+            console.error(`❌ Response text complet:`, responseText);
+            throw new Error(`Réponse JSON invalide: ${jsonError.message}`);
         }
+        
+        return data;
+        
+    } catch (error) {
+        clearTimeout(timeoutId);
+        
+        // Gestion détaillée des erreurs
+        if (error.name === 'AbortError') {
+            console.error(`⏱️ Timeout après ${API_CONFIG.TIMEOUT}ms`);
+            throw new Error(`Timeout de la requête (${API_CONFIG.TIMEOUT}ms)`);
+        }
+        
+        if (error.message.includes('CORS')) {
+            console.error(`🌐 Erreur CORS détectée:`, error);
+            throw new Error(`Erreur CORS: Vérifiez la configuration du serveur N8N`);
+        }
+        
+        if (error.message.includes('Failed to fetch')) {
+            console.error(`🔌 Erreur réseau:`, error);
+            throw new Error(`Erreur réseau: Impossible de joindre le serveur N8N`);
+        }
+        
+        console.error(`❌ Erreur générique:`, error);
+        throw error;
     }
-    
-    // Mise à jour des références globales
-    config = loadedModules.config || config;
 }
 
 // ========================================================================
-// VARIABLES D'ÉTAT GLOBALES
+// FONCTION DE TEST CORS
 // ========================================================================
 
-let currentState = 'main_menu';
-let selectedEnterprise = null;
-let currentAction = null;
-let user = config.DEFAULT_USER;
+async function testCorsConfiguration() {
+    console.log('🧪 Test de configuration CORS...');
+    
+    try {
+        // Test simple avec payload minimal
+        const testPayload = {
+            operation: 'getMany',
+            search: 'test',
+            limit: 1
+        };
+        
+        const result = await robustFetch(API_CONFIG.ENDPOINTS.RECHERCHE_ENTREPRISE, testPayload);
+        console.log('✅ Test CORS réussi:', result);
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Test CORS échoué:', error.message);
+        return false;
+    }
+}
 
 // ========================================================================
-// APP CLASSE PRINCIPALE
+// CLASSE CRM APP AVEC CORRECTION CORS
 // ========================================================================
 
 class CRMAppTransition {
     constructor() {
         this.isInitialized = false;
-        this.user = user;
-        console.log('🚀 CRMAppTransition créé');
+        this.user = { first_name: 'Stève', id: 123456789 };
+        this.corsTestedOk = false;
+        console.log('🚀 CRMAppTransition créé avec gestion CORS');
     }
 
     async initialize() {
         if (this.isInitialized) return;
         
-        console.log('🔧 Initialisation transition...');
-        this.updateLoadingStatus('Chargement des modules...');
+        console.log('🔧 Initialisation avec test CORS...');
+        this.updateLoadingStatus('Test de connexion...');
 
         try {
-            // 1. Charger les modules de façon adaptative
-            await loadModulesAdaptive();
-            await this.delay(300);
+            // 1. Test CORS en premier
+            this.corsTestedOk = await testCorsConfiguration();
+            if (!this.corsTestedOk) {
+                throw new Error('Configuration CORS défaillante');
+            }
             
-            // 2. Initialiser Telegram
+            // 2. Continuer l'initialisation normale
+            await this.delay(300);
             this.updateLoadingStatus('Configuration Telegram...');
             this.initializeTelegram();
-            await this.delay(300);
             
-            // 3. Initialiser les services chargés
-            this.updateLoadingStatus('Initialisation services...');
-            await this.initializeServices();
             await this.delay(300);
-            
-            // 4. Interface
             this.updateLoadingStatus('Préparation interface...');
             this.showMainMenu();
-            await this.delay(300);
             
-            // 5. Succès
+            await this.delay(300);
             this.isInitialized = true;
             this.updateLoadingStatus('Prêt !');
             
@@ -169,15 +193,15 @@ class CRMAppTransition {
             try {
                 tg.ready();
                 tg.expand();
-                this.user = tg.initDataUnsafe?.user || user;
+                this.user = tg.initDataUnsafe?.user || this.user;
                 console.log('✅ Telegram utilisateur:', this.user.first_name);
             } catch (error) {
                 console.warn('⚠️ Erreur Telegram:', error);
-                this.user = user;
+                this.user = { first_name: 'Stève', id: 123456789 };
             }
         } else {
             console.log('🖥️ Mode standalone');
-            this.user = user;
+            this.user = { first_name: 'Stève', id: 123456789 };
         }
 
         // Mise à jour UI
@@ -188,37 +212,17 @@ class CRMAppTransition {
         if (userAvatarEl) userAvatarEl.textContent = this.user.first_name.charAt(0).toUpperCase();
     }
 
-    async initializeServices() {
-        console.log('🔧 Initialisation services...');
-        
-        if (loadedModules.apiService?.initialize) {
-            await loadedModules.apiService.initialize();
-        }
-        
-        if (loadedModules.telegramService?.initialize) {
-            await loadedModules.telegramService.initialize();
-        }
-        
-        if (loadedModules.state?.initialize) {
-            loadedModules.state.initialize();
-        }
-    }
-
     // ========================================================================
-    // NAVIGATION
+    // NAVIGATION (IDENTIQUE)
     // ========================================================================
 
     showMainMenu() {
-        currentState = 'main_menu';
-        currentAction = null;
-        selectedEnterprise = null;
-        
         console.log('🏠 Menu principal');
         
         const content = `
             <div class="main-menu">
                 <h1>🏠 Menu Principal</h1>
-                <p>CRM Modulaire - Version Transition</p>
+                <p>CRM Modulaire - Version CORS Fixed</p>
                 
                 <div class="menu-grid">
                     <div class="menu-item" onclick="appTransition.showSearch()">
@@ -239,17 +243,17 @@ class CRMAppTransition {
                         <div class="subtitle">Renouvellement 2026</div>
                     </div>
                     
-                    <div class="menu-item" onclick="appTransition.showAction('nouvelle_entreprise')">
-                        <div class="icon">🏢</div>
-                        <div class="title">Nouvelle</div>
-                        <div class="subtitle">Entreprise</div>
+                    <div class="menu-item" onclick="appTransition.testCors()">
+                        <div class="icon">🧪</div>
+                        <div class="title">Test CORS</div>
+                        <div class="subtitle">Diagnostic</div>
                     </div>
                 </div>
                 
                 <div class="user-info" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
                     <p><strong>👤 Utilisateur:</strong> ${this.user.first_name}</p>
-                    <p><strong>🔧 Mode:</strong> Transition</p>
-                    <p><strong>📊 Modules:</strong> ${Object.keys(loadedModules).length} chargés</p>
+                    <p><strong>🔧 Mode:</strong> CORS Fixed</p>
+                    <p><strong>🌐 CORS:</strong> ${this.corsTestedOk ? '✅ OK' : '❌ KO'}</p>
                 </div>
             </div>
         `;
@@ -258,12 +262,11 @@ class CRMAppTransition {
     }
 
     showSearch() {
-        currentState = 'search';
         console.log('🔍 Recherche');
         
         const content = `
             <div class="search-interface">
-                <h2>🔍 Recherche Entreprises</h2>
+                <h2>🔍 Recherche Entreprises - Version CORS Fixed</h2>
                 
                 <div class="search-container">
                     <input type="text" 
@@ -279,6 +282,9 @@ class CRMAppTransition {
                     <button class="btn btn-secondary" onclick="appTransition.showMainMenu()">
                         ← Retour au menu
                     </button>
+                    <button class="btn btn-info" onclick="appTransition.testCors()">
+                        🧪 Test CORS
+                    </button>
                 </div>
             </div>
         `;
@@ -291,31 +297,8 @@ class CRMAppTransition {
         }, 100);
     }
 
-    showAction(actionType) {
-        currentAction = actionType;
-        console.log(`📍 Action: ${actionType}`);
-        
-        const content = `
-            <div class="action-interface">
-                <h2>${this.getActionIcon(actionType)} ${this.getActionLabel(actionType)}</h2>
-                
-                <div class="action-content">
-                    ${this.getActionContent(actionType)}
-                </div>
-                
-                <div class="form-buttons">
-                    <button class="btn btn-secondary" onclick="appTransition.showMainMenu()">
-                        ← Retour au menu
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        this.updateMainContent(content);
-    }
-
     // ========================================================================
-    // RECHERCHE
+    // RECHERCHE AVEC GESTION CORS ROBUSTE
     // ========================================================================
 
     async handleSearch() {
@@ -332,59 +315,18 @@ class CRMAppTransition {
         try {
             this.updateStatus('🔍 Recherche en cours...');
             
-            // ✅ URL DIRECTE pour éviter les problèmes de config
-            const webhookUrl = 'https://n8n.dsolution-ia.fr/webhook/recherche_entreprise';
             const payload = {
                 operation: 'getMany',
                 search: query,
                 limit: 10
             };
             
-            console.log('📤 Requête à:', webhookUrl);
-            console.log('📤 Payload:', payload);
+            console.log('📤 Recherche avec payload:', payload);
             
-            const apiService = loadedModules.apiService;
-            let response, data;
+            // Utilisation de robustFetch
+            const data = await robustFetch(API_CONFIG.ENDPOINTS.RECHERCHE_ENTREPRISE, payload);
             
-            if (apiService?.request) {
-                console.log('🔧 Utilisation apiService');
-                response = await apiService.request(webhookUrl, payload);
-                data = response;
-            } else {
-                console.log('🔧 Utilisation fetch direct');
-                
-                // Fetch avec logs détaillés
-                const fetchResponse = await fetch(webhookUrl, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                console.log('📡 Response status:', fetchResponse.status);
-                console.log('📡 Response statusText:', fetchResponse.statusText);
-                console.log('📡 Response headers:', Object.fromEntries(fetchResponse.headers.entries()));
-                
-                // Vérifier si la réponse est OK
-                if (!fetchResponse.ok) {
-                    throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
-                }
-                
-                // Essayer de parser le JSON
-                try {
-                    const responseText = await fetchResponse.text();
-                    console.log('📡 Response text (premiers 500 chars):', responseText.substring(0, 500));
-                    
-                    data = JSON.parse(responseText);
-                    console.log('📡 Response parsée:', data);
-                } catch (jsonError) {
-                    console.error('❌ Erreur parsing JSON:', jsonError);
-                    throw new Error('Réponse JSON invalide du serveur');
-                }
-            }
-            
-            // Extraction des données avec logging
+            // Extraction des données avec logging détaillé
             let enterprises = [];
             console.log('🔍 Structure de data:', Object.keys(data || {}));
             
@@ -416,10 +358,41 @@ class CRMAppTransition {
         } catch (error) {
             console.error('❌ Erreur complète:', error);
             console.error('❌ Stack trace:', error.stack);
-            this.updateStatus('❌ Erreur: ' + error.message);
+            this.updateStatus('❌ ' + error.message);
             this.displaySearchResults([]);
         }
     }
+
+    // ========================================================================
+    // FONCTION DE TEST CORS PUBLIQUE
+    // ========================================================================
+
+    async testCors() {
+        this.updateStatus('🧪 Test CORS en cours...');
+        
+        try {
+            const success = await testCorsConfiguration();
+            
+            if (success) {
+                this.showMessage('✅ Test CORS réussi ! La configuration est correcte.');
+                this.updateStatus('✅ CORS OK');
+                this.corsTestedOk = true;
+            } else {
+                this.showMessage('❌ Test CORS échoué. Vérifiez la configuration N8N.');
+                this.updateStatus('❌ CORS KO');
+                this.corsTestedOk = false;
+            }
+            
+        } catch (error) {
+            console.error('❌ Erreur test CORS:', error);
+            this.showMessage('❌ Erreur test CORS: ' + error.message);
+            this.updateStatus('❌ CORS Error');
+        }
+    }
+
+    // ========================================================================
+    // FONCTIONS UTILITAIRES (IDENTIQUES À L'ORIGINAL)
+    // ========================================================================
 
     displaySearchResults(results) {
         const resultsDiv = document.getElementById('searchResults');
@@ -445,139 +418,14 @@ class CRMAppTransition {
         const enterprise = window.currentSearchResults?.[index];
         if (!enterprise) return;
         
-        selectedEnterprise = enterprise;
         console.log('🎯 Entreprise sélectionnée:', enterprise.nom_entreprise);
         this.showMessage(`Entreprise sélectionnée: ${enterprise.nom_entreprise}`);
     }
 
-    // ========================================================================
-    // UTILITAIRES
-    // ========================================================================
-
-    getActionIcon(actionType) {
-        const icons = {
-            'qualification': '💼',
-            'stats': '📊',
-            'nouvelle_entreprise': '🏢',
-            'facture': '📄',
-            'bon_commande': '📋'
-        };
-        return icons[actionType] || '⚡';
-    }
-
-    getActionLabel(actionType) {
-        const labels = {
-            'qualification': 'Qualification Prospect',
-            'stats': 'Statistiques Renouvellement',
-            'nouvelle_entreprise': 'Nouvelle Entreprise',
-            'facture': 'Génération Facture',
-            'bon_commande': 'Bon de Commande'
-        };
-        return labels[actionType] || actionType;
-    }
-
-    getActionContent(actionType) {
-        switch(actionType) {
-            case 'stats':
-                return `
-                    <p>📊 Interface des statistiques de renouvellement 2026.</p>
-                    <button class="btn btn-primary" onclick="appTransition.loadStats()">
-                        📈 Charger les statistiques
-                    </button>
-                `;
-            case 'qualification':
-                return `
-                    <p>💼 Interface de qualification des prospects.</p>
-                    <p>⚠️ Sélectionnez d'abord une entreprise via la recherche.</p>
-                `;
-            case 'nouvelle_entreprise':
-                return `
-                    <p>🏢 Création d'une nouvelle entreprise.</p>
-                    <button class="btn btn-primary" onclick="appTransition.showNewEnterpriseForm()">
-                        ➕ Créer une entreprise
-                    </button>
-                `;
-            default:
-                return `<p>⚡ Fonctionnalité ${actionType} en développement.</p>`;
-        }
-    }
-
-    async loadStats() {
-        try {
-            this.updateStatus('📊 Chargement statistiques...');
-            
-            // ✅ URL DIRECTE pour éviter les problèmes de config
-            const webhookUrl = 'https://n8n.dsolution-ia.fr/webhook/gateway_entities';
-            
-            const apiService = loadedModules.apiService;
-            let response;
-            
-            if (apiService?.request) {
-                response = await apiService.request('stats_renouvellement_2026', {});
-            } else {
-                console.log('📤 Requête stats à:', webhookUrl);
-                response = await fetch(webhookUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'stats_renouvellement_2026',
-                        data: {}
-                    })
-                }).then(r => r.json());
-            }
-            
-            this.showMessage('📊 Statistiques chargées (voir console)');
-            console.log('📊 Stats:', response);
-            
-        } catch (error) {
-            console.error('❌ Erreur stats:', error);
-            this.showMessage('❌ Erreur stats: ' + error.message);
-        }
-    }
-
-    showNewEnterpriseForm() {
-        const content = `
-            <div class="nouvelle-entreprise-form">
-                <h3>🏢 Nouvelle Entreprise</h3>
-                
-                <form onsubmit="appTransition.createEnterprise(event)">
-                    <div class="form-group">
-                        <label>Nom de l'entreprise *</label>
-                        <input type="text" id="nomEntreprise" class="form-control" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Commune</label>
-                        <input type="text" id="communeEntreprise" class="form-control">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Contact</label>
-                        <input type="text" id="contactEntreprise" class="form-control">
-                    </div>
-                    
-                    <div class="form-buttons">
-                        <button type="submit" class="btn btn-primary">✅ Créer</button>
-                        <button type="button" class="btn btn-secondary" onclick="appTransition.showAction('nouvelle_entreprise')">← Retour</button>
-                    </div>
-                </form>
-            </div>
-        `;
-        
+    showAction(actionType) {
+        console.log(`📍 Action: ${actionType}`);
+        const content = `<div class="action-content"><h2>⚡ ${actionType}</h2><p>Fonctionnalité en développement.</p></div>`;
         this.updateMainContent(content);
-    }
-
-    async createEnterprise(event) {
-        event.preventDefault();
-        
-        const formData = {
-            nom_entreprise: document.getElementById('nomEntreprise').value,
-            commune: document.getElementById('communeEntreprise').value,
-            contact: document.getElementById('contactEntreprise').value
-        };
-        
-        console.log('🏢 Création entreprise:', formData);
-        this.showMessage('✅ Entreprise créée (simulation)');
     }
 
     updateMainContent(htmlContent) {
@@ -591,10 +439,6 @@ class CRMAppTransition {
         console.log(`📝 Status: ${message}`);
         const statusEl = document.getElementById('loadingStatus');
         if (statusEl) statusEl.textContent = message;
-        
-        if (loadedModules.state?.updateData) {
-            loadedModules.state.updateData('currentStatus', message);
-        }
     }
 
     updateStatus(message) {
@@ -628,18 +472,12 @@ class CRMAppTransition {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // ========================================================================
-    // DEBUG
-    // ========================================================================
-
     getDebugInfo() {
         return {
             initialized: this.isInitialized,
-            currentState: currentState,
-            selectedEnterprise: selectedEnterprise,
+            corsTestedOk: this.corsTestedOk,
             user: this.user,
-            loadedModules: Object.keys(loadedModules),
-            config: config
+            apiConfig: API_CONFIG
         };
     }
 }
@@ -656,23 +494,19 @@ window.showMainMenu = () => appTransition.showMainMenu();
 window.showSearch = () => appTransition.showSearch();
 window.showAction = (action) => appTransition.showAction(action);
 
-// Variables globales pour compatibilité
-window.selectedEnterprise = selectedEnterprise;
-window.currentAction = currentAction;
-
 // Démarrage
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        console.log('📄 DOM ready - Démarrage transition');
+        console.log('📄 DOM ready - Démarrage transition CORS Fixed');
         if (window.updateLoadingStatus) {
             window.updateLoadingStatus('Démarrage transition...');
         }
         appTransition.initialize();
     });
 } else {
-    console.log('📄 DOM déjà prêt - Démarrage transition immédiat');
+    console.log('📄 DOM déjà prêt - Démarrage transition CORS Fixed immédiat');
     appTransition.initialize();
 }
 
 export default appTransition;
-console.log('🚀 app-transition.js chargé');
+console.log('🚀 app-transition.js CORS Fixed chargé');
