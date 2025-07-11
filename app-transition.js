@@ -349,7 +349,10 @@ class CRMAppTransition {
                 console.log('📤 Requête directe à:', webhookUrl);
                 response = await fetch(webhookUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Origin': 'https://crmpompiers34800.netlify.app'
+                    },
                     body: JSON.stringify({
                         operation: 'getMany',
                         search: query,
