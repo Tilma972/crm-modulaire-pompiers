@@ -1,9 +1,9 @@
-// app-transition.js - Version corrigée avec gestion CORS robuste
+// app-transition.js - Version SANS test CORS initial pour débloquer l'app
 
-console.log('🚀 Démarrage app-transition.js - Version CORS Fixed');
+console.log('🚀 Démarrage app-transition.js - Version Bypass CORS');
 
 // ========================================================================
-// CONFIGURATION CENTRALISÉE AVEC GESTION CORS
+// CONFIGURATION API (identique)
 // ========================================================================
 
 const API_CONFIG = {
@@ -12,11 +12,12 @@ const API_CONFIG = {
         RECHERCHE_ENTREPRISE: '/webhook/recherche_entreprise',
         GATEWAY_ENTITIES: '/webhook/gateway_entities'
     },
-    // ✅ Headers simplifiés pour éviter preflight OPTIONS
     FETCH_OPTIONS: {
         method: 'POST',
         headers: {
-            'Content-Type': 'text/plain'  // ✅ Évite preflight
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
         },
         mode: 'cors',
         credentials: 'omit'
@@ -25,21 +26,19 @@ const API_CONFIG = {
 };
 
 // ========================================================================
-// FETCH ROBUSTE AVEC GESTION D'ERREURS DÉTAILLÉE
+// FETCH ROBUSTE (identique mais exposé globalement)
 // ========================================================================
 
-async function robustFetch(endpoint, payload) {
+window.robustFetch = async function robustFetch(endpoint, payload) {
     const url = `${API_CONFIG.BASE_URL}${endpoint}`;
     
     console.log(`📤 Requête vers: ${url}`);
     console.log(`📤 Payload:`, JSON.stringify(payload, null, 2));
     
-    // Créer AbortController pour timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
     
     try {
-        // Options fetch complètes
         const fetchOptions = {
             ...API_CONFIG.FETCH_OPTIONS,
             body: JSON.stringify(payload),
@@ -48,37 +47,27 @@ async function robustFetch(endpoint, payload) {
         
         console.log(`🔧 Options fetch:`, fetchOptions);
         
-        // Exécution de la requête
         const response = await fetch(url, fetchOptions);
-        
-        // Nettoyer le timeout
         clearTimeout(timeoutId);
         
-        // Logging détaillé de la réponse
         console.log(`📡 Response status: ${response.status}`);
         console.log(`📡 Response ok: ${response.ok}`);
-        console.log(`📡 Response headers:`, Object.fromEntries(response.headers.entries()));
         
-        // Vérifier le status HTTP
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`❌ HTTP Error ${response.status}:`, errorText);
-            throw new Error(`HTTP ${response.status}: ${response.statusText}\nDétails: ${errorText}`);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        // Lire le contenu comme text d'abord pour débugger
         const responseText = await response.text();
-        console.log(`📡 Response text (premiers 500 chars):`, responseText.substring(0, 500));
+        console.log(`📡 Response text (premiers 200 chars):`, responseText.substring(0, 200));
         
-        // Parser le JSON
         let data;
         try {
             data = JSON.parse(responseText);
             console.log(`✅ JSON parsé avec succès`);
-            console.log(`📊 Data structure:`, Object.keys(data || {}));
         } catch (jsonError) {
             console.error(`❌ Erreur parsing JSON:`, jsonError);
-            console.error(`❌ Response text complet:`, responseText);
             throw new Error(`Réponse JSON invalide: ${jsonError.message}`);
         }
         
@@ -87,95 +76,60 @@ async function robustFetch(endpoint, payload) {
     } catch (error) {
         clearTimeout(timeoutId);
         
-        // Gestion détaillée des erreurs
         if (error.name === 'AbortError') {
-            console.error(`⏱️ Timeout après ${API_CONFIG.TIMEOUT}ms`);
-            throw new Error(`Timeout de la requête (${API_CONFIG.TIMEOUT}ms)`);
+            throw new Error(`Timeout après ${API_CONFIG.TIMEOUT}ms`);
         }
         
         if (error.message.includes('CORS')) {
-            console.error(`🌐 Erreur CORS détectée:`, error);
-            throw new Error(`Erreur CORS: Vérifiez la configuration du serveur N8N`);
+            throw new Error(`Erreur CORS: ${error.message}`);
         }
         
         if (error.message.includes('Failed to fetch')) {
-            console.error(`🔌 Erreur réseau:`, error);
-            throw new Error(`Erreur réseau: Impossible de joindre le serveur N8N`);
+            throw new Error(`Erreur réseau: ${error.message}`);
         }
         
-        console.error(`❌ Erreur générique:`, error);
         throw error;
     }
 }
 
 // ========================================================================
-// FONCTION DE TEST CORS
-// ========================================================================
-
-async function testCorsConfiguration() {
-    console.log('🧪 Test de configuration CORS...');
-    
-    try {
-        // Test simple avec payload minimal
-        const testPayload = {
-            operation: 'getMany',
-            search: 'test',
-            limit: 1
-        };
-        
-        const result = await robustFetch(API_CONFIG.ENDPOINTS.RECHERCHE_ENTREPRISE, testPayload);
-        console.log('✅ Test CORS réussi:', result);
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Test CORS échoué:', error.message);
-        return false;
-    }
-}
-
-// ========================================================================
-// CLASSE CRM APP AVEC CORRECTION CORS
+// CLASSE CRM APP - SANS TEST CORS INITIAL
 // ========================================================================
 
 class CRMAppTransition {
     constructor() {
         this.isInitialized = false;
         this.user = { first_name: 'Stève', id: 123456789 };
-        this.corsTestedOk = false;
-        console.log('🚀 CRMAppTransition créé avec gestion CORS');
+        console.log('🚀 CRMAppTransition créé - Mode Bypass CORS');
     }
 
     async initialize() {
         if (this.isInitialized) return;
         
-        console.log('🔧 Initialisation avec test CORS...');
-        this.updateLoadingStatus('Test de connexion...');
-
+        console.log('🔧 Initialisation SANS test CORS...');
+        
         try {
-            // 1. Test CORS en premier
-            this.corsTestedOk = await testCorsConfiguration();
-            if (!this.corsTestedOk) {
-                throw new Error('Configuration CORS défaillante');
-            }
+            // ✅ SUPPRIMÉ : Test CORS initial
+            // ✅ DIRECTEMENT : Initialisation normale
             
-            // 2. Continuer l'initialisation normale
-            await this.delay(300);
             this.updateLoadingStatus('Configuration Telegram...');
             this.initializeTelegram();
-            
             await this.delay(300);
+            
             this.updateLoadingStatus('Préparation interface...');
             this.showMainMenu();
-            
             await this.delay(300);
+            
             this.isInitialized = true;
             this.updateLoadingStatus('Prêt !');
             
+            // ✅ DÉMASQUER L'APP
             if (window.hideLoadingScreen) {
                 window.hideLoadingScreen();
             }
             
-            this.showMessage('🚀 CRM Transition initialisé avec succès !');
+            this.showMessage('🚀 CRM initialisé avec succès !');
+            console.log('✅ Initialisation terminée avec succès');
             
         } catch (error) {
             console.error('❌ Erreur initialisation:', error);
@@ -211,7 +165,7 @@ class CRMAppTransition {
     }
 
     // ========================================================================
-    // NAVIGATION (IDENTIQUE)
+    // NAVIGATION
     // ========================================================================
 
     showMainMenu() {
@@ -220,7 +174,7 @@ class CRMAppTransition {
         const content = `
             <div class="main-menu">
                 <h1>🏠 Menu Principal</h1>
-                <p>CRM Modulaire - Version CORS Fixed</p>
+                <p>CRM Modulaire - Version Bypass CORS</p>
                 
                 <div class="menu-grid">
                     <div class="menu-item" onclick="appTransition.showSearch()">
@@ -229,10 +183,10 @@ class CRMAppTransition {
                         <div class="subtitle">Entreprises</div>
                     </div>
                     
-                    <div class="menu-item" onclick="appTransition.showAction('qualification')">
-                        <div class="icon">💼</div>
-                        <div class="title">Qualification</div>
-                        <div class="subtitle">Prospects</div>
+                    <div class="menu-item" onclick="appTransition.testCorsManual()">
+                        <div class="icon">🧪</div>
+                        <div class="title">Test CORS</div>
+                        <div class="subtitle">Diagnostic</div>
                     </div>
                     
                     <div class="menu-item" onclick="appTransition.showAction('stats')">
@@ -241,17 +195,17 @@ class CRMAppTransition {
                         <div class="subtitle">Renouvellement 2026</div>
                     </div>
                     
-                    <div class="menu-item" onclick="appTransition.testCors()">
-                        <div class="icon">🧪</div>
-                        <div class="title">Test CORS</div>
-                        <div class="subtitle">Diagnostic</div>
+                    <div class="menu-item" onclick="appTransition.showAction('qualification')">
+                        <div class="icon">💼</div>
+                        <div class="title">Qualification</div>
+                        <div class="subtitle">Prospects</div>
                     </div>
                 </div>
                 
                 <div class="user-info" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
                     <p><strong>👤 Utilisateur:</strong> ${this.user.first_name}</p>
-                    <p><strong>🔧 Mode:</strong> CORS Fixed</p>
-                    <p><strong>🌐 CORS:</strong> ${this.corsTestedOk ? '✅ OK' : '❌ KO'}</p>
+                    <p><strong>🔧 Mode:</strong> Bypass CORS</p>
+                    <p><strong>🌐 Status:</strong> ✅ App démarrée</p>
                 </div>
             </div>
         `;
@@ -260,27 +214,27 @@ class CRMAppTransition {
     }
 
     showSearch() {
-        console.log('🔍 Recherche');
+        console.log('🔍 Interface de recherche');
         
         const content = `
             <div class="search-interface">
-                <h2>🔍 Recherche Entreprises - Version CORS Fixed</h2>
+                <h2>🔍 Recherche Entreprises</h2>
                 
                 <div class="search-container">
                     <input type="text" 
                            id="searchInput" 
                            placeholder="Tapez le nom de l'entreprise..."
                            oninput="appTransition.handleSearch()"
-                           class="form-control">
+                           style="width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;">
                 </div>
                 
-                <div id="searchResults" class="search-results" style="display: none;"></div>
+                <div id="searchResults" class="search-results" style="margin-top: 20px;"></div>
                 
-                <div class="form-buttons">
-                    <button class="btn btn-secondary" onclick="appTransition.showMainMenu()">
+                <div class="form-buttons" style="margin-top: 20px;">
+                    <button class="btn btn-secondary" onclick="appTransition.showMainMenu()" style="padding: 10px 20px; margin: 5px;">
                         ← Retour au menu
                     </button>
-                    <button class="btn btn-info" onclick="appTransition.testCors()">
+                    <button class="btn btn-info" onclick="appTransition.testCorsManual()" style="padding: 10px 20px; margin: 5px;">
                         🧪 Test CORS
                     </button>
                 </div>
@@ -289,28 +243,42 @@ class CRMAppTransition {
         
         this.updateMainContent(content);
         
+        // Focus sur l'input
         setTimeout(() => {
             const searchInput = document.getElementById('searchInput');
-            if (searchInput) searchInput.focus();
+            if (searchInput) {
+                searchInput.focus();
+                console.log('✅ Focus sur searchInput');
+            } else {
+                console.error('❌ searchInput non trouvé après création');
+            }
         }, 100);
     }
 
     // ========================================================================
-    // RECHERCHE AVEC GESTION CORS ROBUSTE
+    // RECHERCHE AVEC DEBUG
     // ========================================================================
 
     async handleSearch() {
+        console.log("🚀 handleSearch() APPELÉE !");
+        
         const searchInput = document.getElementById('searchInput');
-        if (!searchInput) return;
+        if (!searchInput) {
+            console.error("❌ searchInput pas trouvé !");
+            return;
+        }
 
         const query = searchInput.value.trim();
+        console.log("🔍 Query:", query);
         
         if (query.length < 2) {
+            console.log("⚠️ Query trop courte");
             this.displaySearchResults([]);
             return;
         }
 
         try {
+            console.log("📤 AVANT robustFetch");
             this.updateStatus('🔍 Recherche en cours...');
             
             const payload = {
@@ -319,97 +287,82 @@ class CRMAppTransition {
                 limit: 10
             };
             
-            console.log('📤 Recherche avec payload:', payload);
+            console.log('📤 Payload:', payload);
+            console.log("🔥 APPEL robustFetch MAINTENANT");
             
-            // Utilisation de robustFetch
-            const data = await robustFetch(API_CONFIG.ENDPOINTS.RECHERCHE_ENTREPRISE, payload);
+            const data = await window.robustFetch(API_CONFIG.ENDPOINTS.RECHERCHE_ENTREPRISE, payload);
+            console.log("✅ robustFetch TERMINÉ", data);
             
-            // Extraction des données avec logging détaillé
+            // Extraction des données
             let enterprises = [];
-            console.log('🔍 Structure de data:', Object.keys(data || {}));
-            
-            if (data) {
-                if (data.data && Array.isArray(data.data)) {
-                    enterprises = data.data;
-                    console.log('✅ Trouvé data.data avec', enterprises.length, 'éléments');
-                } else if (data.results && Array.isArray(data.results)) {
-                    enterprises = data.results;
-                    console.log('✅ Trouvé data.results avec', enterprises.length, 'éléments');
-                } else if (Array.isArray(data)) {
-                    enterprises = data;
-                    console.log('✅ Data est directement un array avec', enterprises.length, 'éléments');
-                } else {
-                    console.warn('⚠️ Structure de données non reconnue:', data);
-                    enterprises = [];
-                }
+            if (data && data.data && Array.isArray(data.data)) {
+                enterprises = data.data;
+            } else if (data && Array.isArray(data)) {
+                enterprises = data;
             }
             
             console.log(`📊 ${enterprises.length} entreprises trouvées`);
-            
-            if (enterprises.length > 0) {
-                console.log('📊 Première entreprise:', enterprises[0]);
-            }
-
             this.displaySearchResults(enterprises);
             this.updateStatus(`✅ ${enterprises.length} résultat(s) trouvé(s)`);
 
         } catch (error) {
-            console.error('❌ Erreur complète:', error);
-            console.error('❌ Stack trace:', error.stack);
+            console.error('❌ Erreur handleSearch:', error);
             this.updateStatus('❌ ' + error.message);
             this.displaySearchResults([]);
         }
     }
 
     // ========================================================================
-    // FONCTION DE TEST CORS PUBLIQUE
+    // TEST CORS MANUEL
     // ========================================================================
 
-    async testCors() {
+    async testCorsManual() {
+        console.log('🧪 Test CORS manuel...');
         this.updateStatus('🧪 Test CORS en cours...');
         
         try {
-            const success = await testCorsConfiguration();
+            const testPayload = {
+                operation: 'getMany',
+                search: 'test',
+                limit: 1
+            };
             
-            if (success) {
-                this.showMessage('✅ Test CORS réussi ! La configuration est correcte.');
-                this.updateStatus('✅ CORS OK');
-                this.corsTestedOk = true;
-            } else {
-                this.showMessage('❌ Test CORS échoué. Vérifiez la configuration N8N.');
-                this.updateStatus('❌ CORS KO');
-                this.corsTestedOk = false;
-            }
+            const result = await window.robustFetch(API_CONFIG.ENDPOINTS.RECHERCHE_ENTREPRISE, testPayload);
+            console.log('✅ Test CORS réussi:', result);
+            this.showMessage('✅ Test CORS réussi ! N8N fonctionne.');
+            this.updateStatus('✅ CORS OK');
             
         } catch (error) {
-            console.error('❌ Erreur test CORS:', error);
-            this.showMessage('❌ Erreur test CORS: ' + error.message);
-            this.updateStatus('❌ CORS Error');
+            console.error('❌ Test CORS échoué:', error);
+            this.showMessage('❌ Test CORS échoué: ' + error.message);
+            this.updateStatus('❌ CORS KO');
         }
     }
 
     // ========================================================================
-    // FONCTIONS UTILITAIRES (IDENTIQUES À L'ORIGINAL)
+    // UTILITAIRES (identiques)
     // ========================================================================
 
     displaySearchResults(results) {
         const resultsDiv = document.getElementById('searchResults');
-        if (!resultsDiv) return;
+        if (!resultsDiv) {
+            console.error('❌ searchResults div non trouvé');
+            return;
+        }
 
         if (results.length === 0) {
-            resultsDiv.innerHTML = '<div class="search-result-item">Aucun résultat trouvé</div>';
+            resultsDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Aucun résultat trouvé</div>';
         } else {
             resultsDiv.innerHTML = results.map((result, index) => `
-                <div class="search-result-item" onclick="appTransition.selectEnterprise(${index})">
-                    <div class="result-name">${result.nom_entreprise || 'Entreprise'}</div>
-                    <div class="result-details">📍 ${result.commune || 'Commune'} • 👤 ${result.interlocuteur || 'Contact'}</div>
+                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 10px 0; cursor: pointer;" onclick="appTransition.selectEnterprise(${index})">
+                    <div style="font-weight: bold; color: #0088cc; margin-bottom: 5px;">${result.nom_entreprise || 'Entreprise'}</div>
+                    <div style="color: #666; font-size: 14px;">📍 ${result.commune || 'Commune'} • 👤 ${result.interlocuteur || 'Contact'}</div>
+                    <div style="color: #666; font-size: 12px;">📞 ${result.telephone || 'Tel'} • 📧 ${result.email || 'Email'}</div>
                 </div>
             `).join('');
             
             window.currentSearchResults = results;
         }
-
-        resultsDiv.style.display = 'block';
     }
 
     selectEnterprise(index) {
@@ -422,7 +375,13 @@ class CRMAppTransition {
 
     showAction(actionType) {
         console.log(`📍 Action: ${actionType}`);
-        const content = `<div class="action-content"><h2>⚡ ${actionType}</h2><p>Fonctionnalité en développement.</p></div>`;
+        const content = `
+            <div class="action-content" style="padding: 20px; text-align: center;">
+                <h2>⚡ ${actionType}</h2>
+                <p>Fonctionnalité en développement.</p>
+                <button onclick="appTransition.showMainMenu()" style="padding: 10px 20px; margin: 20px;">🏠 Retour au menu</button>
+            </div>
+        `;
         this.updateMainContent(content);
     }
 
@@ -430,11 +389,14 @@ class CRMAppTransition {
         const container = document.getElementById('mainContent') || document.getElementById('app');
         if (container) {
             container.innerHTML = htmlContent;
+            console.log('✅ Contenu mis à jour');
+        } else {
+            console.error('❌ Container principal non trouvé');
         }
     }
 
     updateLoadingStatus(message) {
-        console.log(`📝 Status: ${message}`);
+        console.log(`📝 Loading: ${message}`);
         const statusEl = document.getElementById('loadingStatus');
         if (statusEl) statusEl.textContent = message;
     }
@@ -463,20 +425,25 @@ class CRMAppTransition {
     handleInitializationError(error) {
         console.error('❌ Erreur critique:', error);
         this.updateLoadingStatus('Erreur: ' + error.message);
-        this.showMessage('❌ Erreur: ' + error.message);
+        
+        // ✅ DÉMASQUER L'APP MÊME EN CAS D'ERREUR
+        if (window.hideLoadingScreen) {
+            window.hideLoadingScreen();
+        }
+        
+        // Afficher une interface d'erreur
+        const errorContent = `
+            <div style="text-align: center; padding: 40px;">
+                <h2 style="color: #dc3545;">❌ Erreur d'initialisation</h2>
+                <p>${error.message}</p>
+                <button onclick="location.reload()" style="padding: 10px 20px; margin: 20px;">🔄 Recharger</button>
+            </div>
+        `;
+        this.updateMainContent(errorContent);
     }
 
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    getDebugInfo() {
-        return {
-            initialized: this.isInitialized,
-            corsTestedOk: this.corsTestedOk,
-            user: this.user,
-            apiConfig: API_CONFIG
-        };
     }
 }
 
@@ -490,21 +457,17 @@ const appTransition = new CRMAppTransition();
 window.appTransition = appTransition;
 window.showMainMenu = () => appTransition.showMainMenu();
 window.showSearch = () => appTransition.showSearch();
-window.showAction = (action) => appTransition.showAction(action);
 
 // Démarrage
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        console.log('📄 DOM ready - Démarrage transition CORS Fixed');
-        if (window.updateLoadingStatus) {
-            window.updateLoadingStatus('Démarrage transition...');
-        }
+        console.log('📄 DOM ready - Démarrage bypass CORS');
         appTransition.initialize();
     });
 } else {
-    console.log('📄 DOM déjà prêt - Démarrage transition CORS Fixed immédiat');
+    console.log('📄 DOM déjà prêt - Démarrage bypass CORS immédiat');
     appTransition.initialize();
 }
 
 export default appTransition;
-console.log('🚀 app-transition.js CORS Fixed chargé');
+console.log('🚀 app-transition.js Bypass CORS chargé');
