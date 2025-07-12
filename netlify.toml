@@ -1,0 +1,23 @@
+# netlify.toml - À créer à la RACINE de votre projet (même niveau qu'index.html)
+
+[[redirects]]
+  from = "/api/recherche"
+  to = "https://n8n.dsolution-ia.fr/webhook/recherche_entreprise"
+  status = 200
+  force = true
+  headers = {Access-Control-Allow-Origin = "*"}
+
+[[redirects]]  
+  from = "/api/gateway"
+  to = "https://n8n.dsolution-ia.fr/webhook/gateway_entities"
+  status = 200
+  force = true
+  headers = {Access-Control-Allow-Origin = "*"}
+
+# Gestion automatique des requêtes OPTIONS
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, Accept"

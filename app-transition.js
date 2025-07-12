@@ -7,10 +7,10 @@ console.log('🚀 Démarrage app-transition.js - Version Bypass CORS');
 // ========================================================================
 
 const API_CONFIG = {
-    BASE_URL: 'https://n8n.dsolution-ia.fr',
+    BASE_URL: 'https://crmpompiers34800.netlify.app',
     ENDPOINTS: {
-        RECHERCHE_ENTREPRISE: '/webhook/recherche_entreprise',
-        GATEWAY_ENTITIES: '/webhook/gateway_entities'
+        RECHERCHE_ENTREPRISE: '/api/recherche',
+        GATEWAY_ENTITIES: '/api/gateway'
     },
     FETCH_OPTIONS: {
         method: 'POST',
